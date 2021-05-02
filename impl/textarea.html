@@ -1,0 +1,95 @@
+<html lang="en">
+<head>
+    <title>http2curl</title>
+    <meta charset="UTF-8">
+</head>
+<style>
+    .display-flex {
+        display: flex;
+        justify-content: center;
+    }
+
+    .div-lr {
+        width: 500px;
+        height: 600px;
+        margin: 10px;
+    }
+
+    .div-cen {
+        /*border: 1px solid red;*/
+        width: 80px;
+        height: 600px;
+        margin: 10px;
+        text-align: center;
+    }
+
+    .txt {
+        margin: 0px;
+        height: 600px;
+        width: 500px;
+    }
+
+    .btn {
+        margin-top: 300px
+    }
+
+</style>
+<body>
+<div class="display-flex">
+    <div class="div-lr">
+        <div><h4>http msg</h4></div>
+        <textarea id="msg" cols="" class="txt"></textarea>
+    </div>
+    <div class="div-cen">
+        <button class="btn" onclick="conv()">
+            >>
+        </button>
+    </div>
+    <div class="div-lr">
+        <div><h4>curl command line</h4></div>
+        <textarea id="curl" cols="" class="txt"></textarea>
+    </div>
+</div>
+</body>
+<script>
+    function conv() {
+        var msgInput = document.getElementById("msg")
+        var curlInput = document.getElementById("curl")
+        var data
+        data = "msg=" + msgInput.value
+
+        Ajax.post("http://127.0.0.1:4887/conv", data, function (a, b) {
+            console.log(b)
+        })
+    }
+
+    var Ajax = {
+        get: function (url, fn) {
+            // XMLHttpRequest对象用于在后台与服务器交换数据
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function () {
+                // readyState == 4说明请求已完成
+                if (xhr.readyState == 4 && xhr.status == 200 || xhr.status == 304) {
+                    // 从服务器获得数据
+                    fn.call(this, xhr.responseText);
+                }
+            };
+            xhr.send();
+        },
+        // datat应为'a=a1&b=b1'这种字符串格式，在jq里如果data为对象会自动将对象转成这种字符串格式
+        post: function (url, data, fn) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", url, true);
+            // 添加http头，发送信息至服务器时内容编码类型
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && (xhr.status == 200 || xhr.status == 304)) {
+                    fn.call(this, xhr.responseText);
+                }
+            };
+            xhr.send(data);
+        }
+    }
+</script>
+</html>
