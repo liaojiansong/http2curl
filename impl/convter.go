@@ -3,7 +3,6 @@ package impl
 import (
 	"bufio"
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,17 +11,16 @@ import (
 	"strings"
 )
 
-var Verbose bool
+var (
+	Verbose  = false
+	FilePath = ""
+)
 
 func Cli() {
-	var filePath string
-	flag.StringVar(&filePath, "f", "", "special file which contain standard http msg")
-	flag.BoolVar(&Verbose, "v", false, "show verbose")
-	flag.Parse()
-	if filePath == "" {
+	if FilePath == "" {
 		log.Fatalln("-f is not specify")
 	}
-	msg, err := readMsgFile(filePath)
+	msg, err := readMsgFile(FilePath)
 	if err != nil {
 		log.Fatalln("The file format is wrong")
 	}
@@ -48,8 +46,9 @@ func NewConverter(msg string) (*Converter, error) {
 	var err error
 	c.request, err = http.ReadRequest(c.msgReader)
 	if err != nil {
-		log.Println("http message is illegal")
-		return nil, err
+		log.Println("http message is illegal;")
+		log.Println(err)
+		return nil, errors.New("http message is illegal")
 	}
 	return c, nil
 }

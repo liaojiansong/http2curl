@@ -10,43 +10,87 @@
     }
 
     .div-lr {
-        width: 500px;
+        width: 520px;
         height: 600px;
         margin: 10px;
     }
 
     .div-cen {
-        /*border: 1px solid red;*/
-        width: 80px;
+        width: 100px;
         height: 600px;
         margin: 10px;
         text-align: center;
     }
 
     .txt {
-        margin: 0px;
         height: 600px;
-        width: 500px;
+        width: 520px;
     }
 
-    .btn {
-        margin-top: 300px
+    .button {
+        background-color: #4CAF50; /* Green */
+        border: none;
+        color: white;
+        /*padding: 5px 10px;*/
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin-top: 300px;
+        -webkit-transition-duration: 0.4s; /* Safari */
+        transition-duration: 0.4s;
+        cursor: pointer;
+        border-radius: 4px;
     }
+
+
+    .button2 {
+        background-color: white;
+        color: black;
+        border: 2px solid #008CBA;
+    }
+
+    .button2:hover {
+        background-color: #008CBA;
+        color: white;
+    }
+
+    .hd {
+        margin-top: 30px;
+    }
+
+    .title {
+        text-align: center;
+        color: coral;
+    }
+
+    .ito {
+        text-align: center;
+        color: slategray;
+    }
+
 
 </style>
 <body>
+<div class="hd">
+    <h3 style="text-align: center;color: coral">Http message to Curl command line</h3>
+    <!--    <h6 class="ito">Conver stand http msg to curl command line</h6>-->
+    <h6 class="ito">You can copy the result then import into postman to make a new request</h6>
+    <h6 class="ito">More information please vist this project <a href="https://github.com/liaojiansong/http2curl">http2curl</a>
+    </h6>
+</div>
 <div class="display-flex">
     <div class="div-lr">
-        <div><h4>http msg</h4></div>
+        <div><h4>HTTP msg:</h4></div>
         <textarea id="msg" cols="" class="txt"></textarea>
     </div>
     <div class="div-cen">
-        <button class="btn" onclick="conv()">
-            >>
+        <button class="button button2" onclick="conv()">
+            Conversion >>
         </button>
     </div>
     <div class="div-lr">
-        <div><h4>curl command line</h4></div>
+        <div><h4>CURL command line:</h4></div>
         <textarea id="curl" cols="" class="txt"></textarea>
     </div>
 </div>
@@ -55,34 +99,20 @@
     function conv() {
         var msgInput = document.getElementById("msg")
         var curlInput = document.getElementById("curl")
-        var data
-        data = "msg=" + msgInput.value
-
-        Ajax.post("http://127.0.0.1:4887/conv", data, function (a, b) {
-            console.log(b)
-        })
+        var data = msgInput.value
+        if (data === "") {
+            return
+        }
+        curlInput.value = ""
+        Ajax.post("http://127.0.0.1:4887/conv", data, function (rsp) {
+            curlInput.value = rsp
+        });
     }
 
     var Ajax = {
-        get: function (url, fn) {
-            // XMLHttpRequest对象用于在后台与服务器交换数据
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', url, true);
-            xhr.onreadystatechange = function () {
-                // readyState == 4说明请求已完成
-                if (xhr.readyState == 4 && xhr.status == 200 || xhr.status == 304) {
-                    // 从服务器获得数据
-                    fn.call(this, xhr.responseText);
-                }
-            };
-            xhr.send();
-        },
-        // datat应为'a=a1&b=b1'这种字符串格式，在jq里如果data为对象会自动将对象转成这种字符串格式
         post: function (url, data, fn) {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", url, true);
-            // 添加http头，发送信息至服务器时内容编码类型
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && (xhr.status == 200 || xhr.status == 304)) {
                     fn.call(this, xhr.responseText);

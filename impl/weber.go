@@ -2,7 +2,7 @@ package impl
 
 import (
 	_ "embed"
-	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -35,13 +35,18 @@ func index(w http.ResponseWriter, r *http.Request) {
 }
 
 func conv(w http.ResponseWriter, r *http.Request) {
-	msg := r.FormValue("msg")
-	if msg == "" {
+	msg, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		badRsp(w, err.Error())
+		return
+	}
+	if len(msg) == 0 {
 		badRsp(w, "msg is empty")
 		return
 	}
-	log.Printf("reveiced msg:\n%s", msg)
-	converter, err := NewConverter(msg)
+	bMsg := string(msg)
+	log.Printf("reveiced msg:\n%s", bMsg)
+	converter, err := NewConverter(bMsg)
 	if err != nil {
 		badRsp(w, err.Error())
 		return
@@ -63,28 +68,7 @@ type CurlRsp struct {
 }
 
 func badRsp(writer http.ResponseWriter, mgs string) {
-	rsp := &CurlRsp{
-		Code: 400,
-		Msg:  mgs,
-	}
-	marshal, err := json.Marshal(&rsp)
-	if err != nil {
-		return
-	}
-	writer.Write(marshal)
-	return
-}
-func okRsp(writer http.ResponseWriter, data string) {
-	rsp := &CurlRsp{
-		Code: 200,
-		Msg:  "success",
-		Data: data,
-	}
-	marshal, err := json.Marshal(&rsp)
-	if err != nil {
-		return
-	}
-	writer.Write(marshal)
+	writer.Write([]byte(mgs))
 	return
 }
 
@@ -94,7 +78,7 @@ func warp(f http.HandlerFunc) http.HandlerFunc {
 		w.Header().Add("Access-Control-Allow-Headers", "Content-Type,AccessToken,X-CSRF-Token, Authorization, Token")
 		w.Header().Add("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("content-type", "application/json;charset=UTF-8")
+		//w.Header().Set("content-type", "application/json;charset=UTF-8")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusNoContent)
 			return
