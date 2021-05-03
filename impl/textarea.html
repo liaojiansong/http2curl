@@ -96,6 +96,10 @@
 </div>
 </body>
 <script>
+    var host = ""
+    window.onload = function () {
+        host = document.location.host
+    }
     function conv() {
         var msgInput = document.getElementById("msg")
         var curlInput = document.getElementById("curl")
@@ -104,7 +108,7 @@
             return
         }
         curlInput.value = ""
-        Ajax.post("http://127.0.0.1:4887/conv", data, function (rsp) {
+        Ajax.post(host + "/conv", data, function (rsp) {
             curlInput.value = rsp
         });
     }
