@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -43,12 +45,9 @@ func NewConverter(msg string) (*Converter, error) {
 		msg:       msg,
 		msgReader: bufio.NewReader(strings.NewReader(msg)),
 	}
-	var err error
-	c.request, err = http.ReadRequest(c.msgReader)
+	err := c.parse()
 	if err != nil {
-		log.Println("http message is illegal;")
-		log.Println(err)
-		return nil, errors.New("http message is illegal")
+		return nil, err
 	}
 	return c, nil
 }
@@ -58,6 +57,17 @@ type Converter struct {
 	msgReader *bufio.Reader
 	request   *http.Request
 	builder   strings.Builder
+}
+
+func (c *Converter) parse() error {
+	var err error
+	c.request, err = http.ReadRequest(c.msgReader)
+	if err != nil {
+		log.Println(err)
+		return errors.New("http message is illegal")
+	}
+	//err = c.fix()
+	return err
 }
 
 func (c *Converter) check() error {
@@ -70,8 +80,44 @@ func (c *Converter) check() error {
 	return nil
 }
 
+func (c *Converter) fix() error {
+	realLen := c.calLen()
+	if c.request.ContentLength == realLen {
+		return nil
+	}
+	compile := regexp.MustCompile(`Content-Length: \d*`)
+	findString := compile.FindString(c.msg)
+	if findString != "" {
+		c.msg = compile.ReplaceAllString(c.msg, fmt.Sprintf("Content-Length: %d", realLen))
+	}
+	return c.parse()
+}
+
+func (c *Converter) calLen() int64 {
+	var start bool
+	length := 0
+	for {
+		line, _, err := c.msgReader.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if !start && len(line) == 0 {
+			start = true
+		}
+		if start {
+			length += len(line)
+		}
+	}
+	return int64(length)
+}
+
 func (c *Converter) Echo() {
-	log.Println(c.do)
+	str, err := c.do()
+	if err != nil {
+		println(err)
+		return
+	}
+	println(str)
 }
 
 func (c *Converter) do() (string, error) {
