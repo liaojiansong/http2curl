@@ -2,33 +2,20 @@ package impl
 
 import (
 	_ "embed"
+	"go.uber.org/zap"
+	"http2curl/pkg/log"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
-const (
-	HINT = "something was wrong,please try again!"
-	PORT = ":4887"
-)
-
-//go:embed textarea.html
+//go:embed static/textarea.html
 var indexHtml string
-
-func Web() {
-	http.HandleFunc("/", index)
-	http.HandleFunc("/conv", warp(conv))
-	log.Printf("server was start,listen port%s", PORT)
-	err := http.ListenAndServe(PORT, nil)
-	if err != nil {
-		log.Fatalf("start server failed;\n%s", err)
-	}
-}
 
 func index(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte(indexHtml))
 	if err != nil {
-		badRsp(w, HINT)
+		log.Error("send index failed", zap.Error(err))
+		badRsp(w, "Send index.html failed,please try again")
 		return
 	}
 	return
@@ -41,34 +28,24 @@ func conv(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(msg) == 0 {
-		badRsp(w, "msg is empty")
+		badRsp(w, "http msg is empty")
 		return
 	}
-	bMsg := string(msg)
-	log.Printf("reveiced msg:\n%s", bMsg)
-	converter, err := NewConverter(bMsg)
+	command, err := NewConverter(msg).toCommands()
 	if err != nil {
 		badRsp(w, err.Error())
 		return
 	}
-	command, err := converter.do()
+	_, err = w.Write([]byte(command.String()))
 	if err != nil {
 		badRsp(w, err.Error())
 		return
 	}
-	log.Printf("return command:%s\n", command)
-	w.Write([]byte(command))
 	return
 }
 
-type CurlRsp struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data string `json:"data"`
-}
-
-func badRsp(writer http.ResponseWriter, mgs string) {
-	writer.Write([]byte(mgs))
+func badRsp(writer http.ResponseWriter, msg string) {
+	writer.Write([]byte(msg))
 	return
 }
 

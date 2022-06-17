@@ -2,182 +2,87 @@ package impl
 
 import (
 	"bufio"
-	"errors"
+	"bytes"
 	"fmt"
+	"go.uber.org/zap"
+	"http2curl/pkg/log"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
-	"regexp"
 	"strings"
 )
 
-var (
-	Verbose  = false
-	FilePath = ""
-)
+type commands []string
 
-func Cli() {
-	if FilePath == "" {
-		log.Fatalln("-f is not specify")
-	}
-	msg, err := readMsgFile(FilePath)
-	if err != nil {
-		log.Fatalln("The file format is wrong")
-	}
-	if len(msg) == 0 {
-		log.Fatalln("The file is empty")
-	}
-	converter, err := NewConverter(msg)
-	if err != nil {
-		log.Fatalf("parse filed;\n %v\n", err)
-	}
-	converter.Echo()
-	os.Exit(0)
+func InitCommand() *commands {
+	return &commands{"curl"}
 }
 
-func NewConverter(msg string) (*Converter, error) {
-	if Verbose {
-		log.Println(msg)
-	}
-	c := &Converter{
-		msg:       msg,
-		msgReader: bufio.NewReader(strings.NewReader(msg)),
-	}
-	err := c.parse()
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+func (c *commands) add(s ...string) {
+	*c = append(*c, s...)
+}
+
+func (c *commands) String() string {
+	return strings.Join(*c, " ")
 }
 
 type Converter struct {
-	msg       string
+	msg       []byte
 	msgReader *bufio.Reader
-	request   *http.Request
-	builder   strings.Builder
 }
 
-func (c *Converter) parse() error {
-	var err error
-	c.request, err = http.ReadRequest(c.msgReader)
+func NewConverter(msg []byte) *Converter {
+	c := &Converter{
+		msg:       msg,
+		msgReader: bufio.NewReader(bytes.NewReader(msg)),
+	}
+	return c
+}
+
+func (c *Converter) toCommands() (*commands, error) {
+	req, err := http.ReadRequest(c.msgReader)
 	if err != nil {
-		log.Println(err)
-		return errors.New("http message is illegal")
+		log.Error("read request failed", zap.String("err", err.Error()))
+		return nil, err
 	}
-	//err = c.fix()
-	return err
-}
+	command := InitCommand()
 
-func (c *Converter) check() error {
-	if c.request.Host == "" {
-		return errors.New("host is required")
-	}
-	if c.request.Method == "" {
-		return errors.New("method is required")
-	}
-	return nil
-}
-
-func (c *Converter) fix() error {
-	realLen := c.calLen()
-	if c.request.ContentLength == realLen {
-		return nil
-	}
-	compile := regexp.MustCompile(`Content-Length: \d*`)
-	findString := compile.FindString(c.msg)
-	if findString != "" {
-		c.msg = compile.ReplaceAllString(c.msg, fmt.Sprintf("Content-Length: %d", realLen))
-	}
-	return c.parse()
-}
-
-func (c *Converter) calLen() int64 {
-	var start bool
-	length := 0
-	for {
-		line, _, err := c.msgReader.ReadLine()
-		if err == io.EOF {
-			break
+	schema := req.URL.Scheme
+	url := req.URL.String()
+	if schema == "" {
+		schema = "http"
+		if req.TLS != nil {
+			schema = "https"
 		}
-		if !start && len(line) == 0 {
-			start = true
+		url = schema + "://" + req.Host + req.URL.Path
+	}
+	command.add("-X", req.Method)
+
+	for key, values := range req.Header {
+		h := fmt.Sprintf("%s: %s", key, strings.Join(values, " "))
+		command.add("-H", c.escape(h))
+	}
+
+	if req.Body != nil {
+		var buff bytes.Buffer
+		n, err := buff.ReadFrom(req.Body)
+		// sometime Content-Length maybe wrong,log this error and go on
+		if err == io.ErrUnexpectedEOF {
+			log.Info("Content-Length wrong", zap.Int64("original len", req.ContentLength), zap.Int64("actual", n))
 		}
-		if start {
-			length += len(line)
+
+		if err != nil && err != io.ErrUnexpectedEOF {
+			log.Error("read request body failed", zap.String("err", err.Error()))
+			return nil, err
+		}
+		body := buff.String()
+		if len(body) > 0 {
+			command.add("-d", c.escape(string(body)))
 		}
 	}
-	return int64(length)
+	command.add(url)
+	return command, nil
 }
 
-func (c *Converter) Echo() {
-	str, err := c.do()
-	if err != nil {
-		println(err)
-		return
-	}
-	println(str)
-}
-
-func (c *Converter) do() (string, error) {
-	err := c.check()
-	if err != nil {
-		return "", err
-	}
-	c.major()
-	c.headers()
-	err = c.body()
-	if err != nil {
-		return "", err
-	}
-	return c.builder.String(), nil
-}
-
-func (c *Converter) major() {
-	c.builder.WriteString(fmt.Sprintf(`curl --location --request %s "%s%s" \`, c.request.Method, c.request.Host, c.request.RequestURI))
-	c.builder.WriteString("\n")
-
-}
-
-func (c *Converter) headers() {
-	for name, vals := range c.request.Header {
-		for _, val := range vals {
-			c.builder.WriteString(fmt.Sprintf(`--header '%s: %s' \`, name, val))
-			c.builder.WriteString("\n")
-		}
-	}
-}
-
-func (c *Converter) body() error {
-	all, err := ioutil.ReadAll(c.request.Body)
-	if err != nil {
-		return errors.New(fmt.Sprintf("parse body failed,%s", err))
-	}
-	c.builder.WriteString(fmt.Sprintf(`--data-raw '%s'`, all))
-	return nil
-}
-
-func (c *Converter) form() error {
-	err := c.request.ParseForm()
-	if err != nil {
-		return errors.New(fmt.Sprintf("parse form failed,%s", err))
-	}
-	for name, vals := range c.request.Form {
-		for _, val := range vals {
-			c.builder.WriteString(fmt.Sprintf(`--form '%s="%s"'`, name, val))
-			c.builder.WriteString("\n")
-		}
-	}
-	return nil
-}
-
-func readMsgFile(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	content, err := ioutil.ReadAll(file)
-	return string(content), nil
+func (c *Converter) escape(s string) string {
+	return `'` + strings.Replace(s, `'`, `'\''`, -1) + `'`
 }
