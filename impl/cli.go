@@ -12,10 +12,10 @@ func Cli(cmd *cobra.Command) {
 	log.Init()
 	file, err := cmd.Flags().GetString("file")
 	if err != nil {
-		log.Panic("Flags file failed", zap.Error(err))
+		log.Fatal("Flags file failed", zap.Error(err))
 	}
 	if file == "" {
-		log.Panic("file path is empty")
+		log.Fatal("file path is empty")
 	}
 	RunCli(file)
 	os.Exit(0)

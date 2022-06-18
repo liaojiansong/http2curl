@@ -23,5 +23,5 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().IntP("port", "p", 22330, "listen port")
 	serveCmd.Flags().String("log-level", "info", "set log level (debug|level|warn|error)")
-	serveCmd.Flags().String("log-path", "/usr/log/http2curl", "Set log save path")
+	serveCmd.Flags().String("log-path", "", "Set log save path")
 }

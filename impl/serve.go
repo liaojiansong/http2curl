@@ -38,7 +38,11 @@ func parseFlags(cmd *cobra.Command) *serve {
 
 func Init(cmd *cobra.Command) *serve {
 	a := parseFlags(cmd)
-	log.Init(log.SetLevel(a.logLevel))
+	logOpts := []log.Options{
+		log.SetLevel(a.logLevel),
+		log.AddPath(a.logPath),
+	}
+	log.Init(logOpts...)
 	return a
 }
 

@@ -7,16 +7,10 @@ import (
 )
 
 type Field = zapcore.Field
+
 type config struct {
-	OutputPaths       []string `json:"output-paths"       mapstructure:"output-paths"`
-	ErrorOutputPaths  []string `json:"error-output-paths" mapstructure:"error-output-paths"`
-	Level             string   `json:"level"              mapstructure:"level"`
-	Format            string   `json:"format"             mapstructure:"format"`
-	DisableCaller     bool     `json:"disable-caller"     mapstructure:"disable-caller"`
-	DisableStacktrace bool     `json:"disable-stacktrace" mapstructure:"disable-stacktrace"`
-	EnableColor       bool     `json:"enable-color"       mapstructure:"enable-color"`
-	Development       bool     `json:"development"        mapstructure:"development"`
-	Name              string   `json:"name"               mapstructure:"name"`
+	Level string
+	Paths []string
 }
 
 type Options func(o *config)
@@ -29,53 +23,56 @@ func SetLevel(level string) Options {
 	}
 }
 
+func AddPath(path string) Options {
+	return func(o *config) {
+		if len(path) != 0 {
+			o.Paths = append(o.Paths, path)
+		}
+	}
+}
+
 func Init(opts ...Options) {
 	o := &config{
-		Level:             zapcore.InfoLevel.String(),
-		DisableCaller:     false,
-		DisableStacktrace: false,
-		Format:            "console",
-		EnableColor:       false,
-		Development:       false,
-		OutputPaths:       []string{"stdout"},
-		ErrorOutputPaths:  []string{"stderr"},
+		Level: zapcore.InfoLevel.String(),
+		Paths: []string{"stdout"},
 	}
 	for _, opt := range opts {
 		opt(o)
 	}
-	//encoderConfig := zapcore.EncoderConfig{
-	//	MessageKey:    "message",
-	//	LevelKey:      "level",
-	//	TimeKey:       "timestamp",
-	//	NameKey:       "logger",
-	//	CallerKey:     "caller",
-	//	StacktraceKey: "stacktrace",
-	//	LineEnding:    zapcore.DefaultLineEnding,
-	//	EncodeCaller:  zapcore.ShortCallerEncoder,
-	//
-	//}
-
-	//loggerConfig := &zap.Config{
-	//	Level:             zap.NewAtomicLevelAt(zapcore.DebugLevel),
-	//	Development:       o.Development,
-	//	DisableCaller:     o.DisableCaller,
-	//	DisableStacktrace: o.DisableStacktrace,
-	//	Sampling: &zap.SamplingConfig{
-	//		Initial:    100,
-	//		Thereafter: 100,
-	//	},
-	//	Encoding: o.Format,
-	//	//EncoderConfig:    encoderConfig,
-	//	OutputPaths:      o.OutputPaths,
-	//	ErrorOutputPaths: o.ErrorOutputPaths,
-	//}
-
-	var err error
-	logger, err := zap.NewDevelopment()
+	level, err := zap.ParseAtomicLevel(o.Level)
 	if err != nil {
-		log.Fatalf("init zap logger fail; err:%v", err.Error())
+		log.Fatalf("log leve illegal")
 	}
-	std = logger
+
+	ef := zapcore.EncoderConfig{
+		TimeKey:        "T",
+		LevelKey:       "L",
+		NameKey:        "N",
+		CallerKey:      "C",
+		FunctionKey:    zapcore.OmitKey,
+		MessageKey:     "M",
+		StacktraceKey:  "S",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	cf := zap.Config{
+		Level:            level,
+		Development:      true,
+		Encoding:         "console",
+		EncoderConfig:    ef,
+		OutputPaths:      o.Paths,
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	l, err := cf.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		log.Fatalf("Build logger fail;err:%s", err.Error())
+	}
+	defer l.Sync()
+	std = l
 }
 
 // Debug logs a message at DebugLevel. The message includes any fields passed
