@@ -1,26 +1,32 @@
-### http2curl 一款可以把http报文转为curl命令的工具
-我们在平时的开发调试中，可能需要根据日志中记录的http报文对请求进行重放，以便于定位问题。面对一些拥有很长的header和body的http消息， 
-如果自己编写curl命令或者通过postman构造的话，可能会比较浪费时间且容易遗漏。<br>
-**http2curl**可以快速地帮你将原始http报文转换为curl命令 ， 你可以拿转换后的curl命令到服务器上执行或者导入postman进行二次编辑
+##### Translate to: [简体中文](README_zh.md)
+### http2curl - A Tool for Converting HTTP Messages to Curl Commands
+In our usual development and debugging process, we may need to replay requests based on the HTTP messages recorded in logs in order to locate issues. When dealing with HTTP messages that have long headers and bodies, it can be time-consuming and prone to errors if we manually write curl commands or construct them using tools like Postman.
 
-### 使用方式
-**http2curl**提供了**web模式**和**命令行模式**两种方式进行转换，这里我们更加推荐使用第一种方式，通过浏览器进行交互使用，简单方便
-#### 安装http2curl
-你可以到[releases](https://github.com/liaojiansong/http2curl/releases)下载合适自己的http2curl版本到本地中
-#### web模式
-##### 1. 开启一个本地web服务
-`./http2curl serve` 开启web服务，默认监听本地的`22330`端口，你也可以通过`-p`选项进行修改
+**http2curl** can quickly convert the original HTTP messages into curl commands. You can take the generated curl command and execute it on the server or import it into Postman for further editing.
+
+### Usage
+**http2curl** provides two modes of conversion: **web mode** and **command-line mode**. Here, we highly recommend using the first mode, which allows for interactive usage through a web browser, making it simple and convenient.
+
+#### Installing http2curl
+You can download the appropriate version of http2curl from [releases](https://github.com/liaojiansong/http2curl/releases) and save it locally.
+
+#### Web Mode
+##### 1. Start a Local Web Service
+Run `./http2curl serve` to start the web service. By default, it listens on port `22330` of the local machine, but you can also modify this using the `-p` option.
+
 ```shell
 $ ./http2curl.exe serve
 2022-06-20T15:20:45.455+0800    INFO    impl/serve.go:56        starting web serve      {"listen port": 22330}
 ```
-##### 2. 浏览器打开 127.0.0.1:22330
-打开你的浏览器，地址栏输入127.0.0.1:22330。在 `HTTP msg`框输入原始的http报文然后点击conversion即可完成转换
+##### 2. Open Browser at 127.0.0.1:22330
+Open your browser and enter 127.0.0.1:22330 in the address bar. In the `HTTP msg` box, enter the original HTTP message and click on "Conversion" to perform the conversion.
 ![](./images/web-example.png)
-#### 命令行模式
-`./http2curl cli -f /home/example/httpmsg.txt` `-f` 选项用于指定存放http消息的文件路径，需要注意的是一个源文件中只能存放一条http消息 
+#### Command-Line Mode
+Run `./http2curl cli -f /home/example/httpmsg.txt` to use the command-line mode. The -f option is used to specify the file path where the HTTP message is stored. Note that each source file can only contain one HTTP message.
+
 ```shell
 $ ./http2curl.exe cli -f /c/workplace/code/httpmsg.txt
 curl -X POST -H 'Content-Length: 16' -H 'Content-Type: application/x-www-form-urlencoded' -d 'name=jack&age=18' http://www.google.com/user
 ```
-#### 最后，如果你觉得这个工具对你有用的话，欢迎**Star**，这个对我很重要
+
+#### Finally, if you find this tool useful, feel free to give it a **Star**. It means a lot to me.
